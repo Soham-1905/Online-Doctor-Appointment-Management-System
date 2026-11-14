@@ -1,43 +1,56 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const database = require('./config/config');
 const bodyParser = require('body-parser');
 
+dotenv.config();
+
+const connectDatabase = require('./config/config');
 const authRoutes = require('./src/routes/auth');
 const doctorRoutes = require('./src/routes/doctors');
 const appointmentRoutes = require('./src/routes/appointments');
+const Appointment = require('./src/models/Appointment');
 
-dotenv.config();
 const app = express();
-//enable cors
+const allowedOrigins = new Set(
+    (process.env.CLIENT_ORIGINS || 'http://localhost:5173')
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+);
 app.use(cors({
-    origin: 'http://localhost:5173',
-    credentials: true, 
+    origin(origin, callback) {
+        if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+        return callback(new Error('Origin is not allowed by CORS.'));
+    },
+    credentials: true,
   }));
-// parse json data
 app.use(express.json());
-app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: false }));
 
-// define port to running server 
 const port = process.env.PORT || 3030;
 
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/appointments', appointmentRoutes);
 
-
-//default route
 app.get('/', (req, res) => {
     res.send('Hello World!');
 });
 
+async function startServer() {
+    if (!process.env.JWT_SECRET) {
+        throw new Error('JWT_SECRET is not configured. Set a private random value before starting the server.');
+    }
+    await connectDatabase();
+    // Do not accept traffic until the active-slot uniqueness index is ready.
+    await Appointment.init();
+    app.listen(port, () => {
+        console.log(`Server running on http://localhost:${port}`);
+    });
+}
 
-// port listner
-app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
-   
+startServer().catch((error) => {
+    console.error('Failed to start server:', error.message);
+    process.exitCode = 1;
 });

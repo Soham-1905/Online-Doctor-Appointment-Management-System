@@ -8,11 +8,16 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
 
     // Handle login
   const handleLogin = async () => {
+    setErrors({});
+    setFormError('');
+    setSubmitting(true);
     try {
       await loginSchema.validate({ email, password }, { abortEarly: false });
       const data = await loginUser(email, password);
@@ -27,8 +32,10 @@ export default function LoginPage() {
         });
         setErrors(fieldErrors);
       } else {
-       // alert(" Login failed. Please check your credentials.");
+        setFormError(err.response?.data?.error || 'Login failed. Please check your credentials and try again.');
       }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -66,11 +73,13 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {formError && <p role="alert" className="mt-4 text-sm text-red-600">{formError}</p>}
           <button
             onClick={handleLogin}
+            disabled={submitting}
             className="mt-6 bg-blue-600 hover:bg-blue-700 text-white w-full py-3 rounded-lg font-semibold transition duration-200"
           >
-            Login
+            {submitting ? 'Signing in...' : 'Login'}
           </button>
 
           <p className="text-center mt-4 text-gray-600">

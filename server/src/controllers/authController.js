@@ -4,30 +4,46 @@ const jwt = require("jsonwebtoken");
 
 //new user registration
 exports.register = async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password } = req.body || {};
+  const normalizedName = typeof name === 'string' ? name.trim() : '';
+  const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  if (normalizedName.length < 2 || normalizedName.length > 100) {
+    return res.status(400).json({ error: 'Name must be between 2 and 100 characters.' });
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || normalizedEmail.length > 254) {
+    return res.status(400).json({ error: 'Enter a valid email address.' });
+  }
+  if (typeof password !== 'string' || password.length < 6 || password.length > 128) {
+    return res.status(400).json({ error: 'Password must be between 6 and 128 characters.' });
+  }
 
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await User.create({
-      name,
-      email,
+      name: normalizedName,
+      email: normalizedEmail,
       password: hashedPassword,
-      role: role || "patient",
+      // Public registration can never grant administrative privileges.
+      role: 'patient',
     });
 
     res.status(201).json({ message: "User registered successfully" });
   } catch (err) {
-    res.status(500).json({ error: "Email already exists or server error" });
+    if (err.code === 11000) return res.status(409).json({ error: 'An account with this email already exists.' });
+    res.status(500).json({ error: "Registration failed. Please try again." });
   }
 };
 
 
 //user login
 exports.login = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password } = req.body || {};
+  if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
+    return res.status(400).json({ error: 'Email and password are required.' });
+  }
 
   try {
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.password);

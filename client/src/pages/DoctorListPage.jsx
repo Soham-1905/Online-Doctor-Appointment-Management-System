@@ -5,20 +5,30 @@ import { fetchDoctors } from "../api/doctorApi";
 
 export default function DoctorListPage() {
   const [doctors, setDoctors] = useState([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
     const loadDoctors = async () => {
       try {
         const data = await fetchDoctors();
-        setDoctors(data);
+        setDoctors(Array.isArray(data) ? data : []);
       } catch (err) {
-        alert("Failed to load doctors");
+        setError(err.response?.data?.error || 'Failed to load doctors. Please try again.');
+      } finally {
+        setLoading(false);
       }
     };
 
     loadDoctors();
   }, []);
+
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredDoctors = doctors.filter((doc) =>
+    [doc.name, doc.specialty, doc.hospital].some((value) => typeof value === 'string' && value.toLowerCase().includes(normalizedSearch))
+  );
 
   return (
     <div className="flex">
@@ -26,8 +36,23 @@ export default function DoctorListPage() {
       <main className="ml-64 p-6 w-full">
         <h1 className="text-2xl font-bold text-blue-800 mb-6">Available Doctors</h1>
 
+        <label htmlFor="doctor-search" className="sr-only">Search doctors by name, specialty, or hospital</label>
+        <input
+          id="doctor-search"
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search by doctor, specialty, or hospital"
+          className="mb-6 w-full max-w-xl rounded-lg border border-gray-300 px-4 py-3"
+        />
+
+        {error && <p role="alert" className="mb-4 text-red-600">{error}</p>}
+        {loading ? <p>Loading doctors...</p> : !filteredDoctors.length ? (
+          <p role="status" className="text-gray-600">{search.trim() ? 'No doctors match your search.' : 'No doctors are available right now.'}</p>
+        ) : (
+
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {doctors.map((doc) => (
+          {filteredDoctors.map((doc) => (
             <div
               key={doc._id}
               className="bg-white shadow-lg rounded-xl p-5 border border-gray-100"
@@ -48,6 +73,7 @@ export default function DoctorListPage() {
             </div>
           ))}
         </div>
+        )}
       </main>
     </div>
   );

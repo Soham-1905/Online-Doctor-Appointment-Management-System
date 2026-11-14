@@ -7,6 +7,8 @@ import { registerSchema } from "../validations/registerSchema";
 export default function RegisterPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
   // Handle input change
@@ -16,10 +18,12 @@ export default function RegisterPage() {
 
     // Handle registration
   const handleRegister = async () => {
+    setErrors({});
+    setFormError('');
     try {
-      await registerSchema.validate(form, { abortEarly: false });
-      await registerUser(form);
-      //alert("Registered successfully!");
+      const validated = await registerSchema.validate(form, { abortEarly: false });
+      setSubmitting(true);
+      await registerUser({ ...validated, name: validated.name.trim(), email: validated.email.trim().toLowerCase() });
       navigate("/login");
     } catch (err) {
       if (err.name === "ValidationError") {
@@ -29,8 +33,10 @@ export default function RegisterPage() {
         });
         setErrors(validationErrors);
       } else {
-        //alert("Registration failed. Try again.");
+        setFormError(err.response?.data?.error || 'Registration failed. Please try again.');
       }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -79,11 +85,13 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          {formError && <p role="alert" className="mt-4 text-sm text-red-600">{formError}</p>}
           <button
             onClick={handleRegister}
+            disabled={submitting}
             className="mt-6 bg-blue-600 hover:bg-blue-700 text-white w-full py-3 rounded-lg font-semibold transition duration-200"
           >
-            Register
+            {submitting ? 'Registering...' : 'Register'}
           </button>
 
           <p className="text-center mt-4 text-gray-600">
